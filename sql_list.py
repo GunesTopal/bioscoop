@@ -1,4 +1,6 @@
 import sqlite3
+import os, sys
+
 from models.clsFilm import Film
 from models.clsVerkoop import Verkoop
 from models.clsVertoning import Vertoning
@@ -55,5 +57,3 @@ def sql_Verkoop_database():
         resultaat.append(Verkoop(rij[0], rij[1], rij[2], rij[3], rij[4]))
     return resultaat
 
-for i in sql_Verkoop_database():
-    print(i)
