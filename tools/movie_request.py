@@ -32,7 +32,7 @@ def vind_film_via_imdb(imdb):
     ENDPOINT=f"https://api.themoviedb.org/3/find/{imdb}?api_key={api_key}&language=nl&external_source=imdb_id"
     data=requests.get(ENDPOINT).json()
     if not len(data['movie_results']):
-        print("<red>Geen gegevens gevonden.</red>")
+        print(f"<red>{imdb} is geen film.</red>")
         sleep(2)
         return 0
     filmid=(data['movie_results'][0]['id'])

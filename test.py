@@ -55,5 +55,8 @@ def sql_Verkoop_database():
         resultaat.append(Verkoop(rij[0], rij[1], rij[2], rij[3], rij[4]))
     return resultaat
 
-for i in sql_Verkoop_database():
-    print(i)
+print("<b>Zoek film(s) via titel of imdb: (Gebruik + voor meerdere films)</b> ", end="")
+gegevens=input("")
+zoek = gegevens.split("+")
+
+print(zoek)  
