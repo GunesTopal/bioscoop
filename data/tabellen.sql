@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS Vertoning (
 	ID_Film INTEGER,
 	Datum TEXT,
 	Moment TEXT,
+	'3D' BOOLEAN,
 	ID_Zaal INTEGER,
 
 	FOREIGN KEY (ID_Film) REFERENCES Film (ID_Film),

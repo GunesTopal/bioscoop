@@ -39,13 +39,14 @@ def sql_vertoning_database():
     conn.commit()
     conn.close()
     resultaat=[]
+  
     for rij in record:
-        print(rij)
         resultaat.append(Vertoning(rij[0], rij[1], rij[2], rij[3], rij[4], rij[5]))
+
     return resultaat
 
 
-def sql_Verkoop_database():
+def sql_verkoop_database():
     conn=sqlite3.connect('data/Databank.db')
     cursor=conn.cursor()
     cursor.execute('SELECT * FROM Verkoop')
@@ -57,3 +58,4 @@ def sql_Verkoop_database():
         resultaat.append(Verkoop(rij[0], rij[1], rij[2], rij[3], rij[4]))
     return resultaat
 
+sql_vertoning_database()
