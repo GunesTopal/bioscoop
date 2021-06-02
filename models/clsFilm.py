@@ -1,6 +1,6 @@
 
 
-class Film():
+class Film(): #Steven: hoofdletter voor classe, kleine letter voor een variabel of een atribute
     def __init__(self, ID_Film, Titel, Duur, DrieD_beschikbaar, KNT, IMDB_ID, Poster_link, Beschrijving):
         self._ID_Film = ID_Film
         self._Titel = Titel
@@ -11,7 +11,7 @@ class Film():
         self.Poster_link = Poster_link
         self.Beschrijving = Beschrijving
 
-    def __str__(self):
+    def __str__(self): 
         return f"{self._Titel}"
     
     @property
