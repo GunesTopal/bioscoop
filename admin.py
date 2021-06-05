@@ -3,7 +3,7 @@ from ansimarkup import ansiprint as print
 import os
 from time import sleep
 from prettytable import PrettyTable, from_db_cursor
-from sql_list import sql_film_database, sql_vertoning_database, sql_zaal_database
+from sql_list import sql_film_database, sql_vertoning_database, sql_zaal_database, sql_verkoop_database
 from tools.movie_request import vind_film_via_imdb
 from datetime import datetime, timedelta
 import locale
@@ -14,6 +14,7 @@ locale.setlocale(locale.LC_ALL, "")
 vandaag=datetime.now()
 vandaag_datum=vandaag.strftime("%d/%m/%Y")
 vandaag_tijd=vandaag.strftime("%H:%M")
+prijs_ticket={'standaard':9,'kids':7,'langspeel':1,'3D':1.5}
 
 
 # ------------------ CUSTOM FUNCTIONS ----------------
@@ -62,7 +63,7 @@ def druk_neeja():
 
     return antwoord
 
-def datum_ingave(prompt):
+def datum_ingave(prompt, delete=None):
     while True:
         try:
             datum=input(prompt)
@@ -129,15 +130,19 @@ def getInteger(vraag,minima=(-9**9),maxima=(9**9)):
             print( "Vul een getal in aub." )
             continue
         return getal
-def presentatie_main(lijst):
+def presentatie_main(lijst, nulerbij=None):
     keuze_dict={}
     for getal in range (len(lijst)):
-        if getal != len(lijst)-1:
-            keuze_dict[getal+1]=lijst[getal]
-            print(f"{kleur_goud(getal+1)}: {lijst[getal]}")
+        if not nulerbij:
+            if getal != len(lijst)-1:
+                keuze_dict[getal+1]=lijst[getal]
+                print(f"{kleur_goud(getal+1)}: {lijst[getal]}")
+            else:
+                keuze_dict[0]=lijst[getal]
+                print(f"<red>{0}: </red>{lijst[getal]}")
         else:
-            keuze_dict[0]=lijst[getal]
-            print(f"<red>{0}: </red>{lijst[getal]}")
+                keuze_dict[getal+1]=lijst[getal]
+                print(f"{kleur_goud(getal+1)}: {lijst[getal]}")           
     print()
     while True:
         keuze=getInteger("Maak uw keuze: ")
@@ -167,6 +172,7 @@ def get_vertoning_list(datum=None,film_id=None, zaal=None):
     resultaat=[]
     resultaat_datum=[]
     resultaat_film=[]
+    resultaat_idorfilm=[]
     ttt=""
     resultaat_film=[(i._ID_Film,i._Titel) for i in sql_film_database()]
 
@@ -181,13 +187,30 @@ def get_vertoning_list(datum=None,film_id=None, zaal=None):
         resultaat=resultaat_datum
 
     if film_id:
-        resultaat_film=[i for i in resultaat if int(film_id) == int(i[1][0])]
-        resultaat=resultaat_film
+        if type(film_id)==list:
+            resultaat_idorfilm=[i  for x in film_id for i in resultaat if i[1][0] == x] 
+        elif type(film_id)==int:
+            resultaat_idorfilm=[i for i in resultaat if i[1][0]==film_id and type(film_id)==int]
+        elif type(film_id)==str:
+            resultaat_idorfilm=[i for i in resultaat if film_id in i[1][1] and type(film_id)==str]
+
+        resultaat=resultaat_idorfilm
 
     if zaal:
         resultaat_zaal=[i for i in resultaat if i[5]==zaal]
         resultaat=resultaat_zaal
+
+    resultaat.sort(key=lambda x:x[3])
     return resultaat 
+
+def get_verkoop_list():
+    resultaat=[]
+    for rij in sql_verkoop_database():
+        resultaat.append([rij.Verkoop_ID, rij.ID_Vertoning, rij.Tickets_kids, rij.Tickets_standaard, rij.Prijs])
+    
+    resultaat.sort(key=lambda x:x[0])
+    return resultaat
+
 
 def show_table_inventory(list):
     x=PrettyTable()
@@ -201,22 +224,20 @@ def show_table_vertoning(list):
     x.add_rows(list)
     return x
 
+def show_table_verkoop(lijst):
+    x=PrettyTable()
+    x.field_names=["Verkoop_ID", "ID_Vertoning","Tickets_kids","Tickets_standaard","Prijs"]
+    x.add_rows(lijst)
+    return x
+
 def id_naar_titel(id):
     inventaris=get_inventory_list()
     for rij in inventaris:
         if rij[0] == id:
             return rij[1]
 
-def insert_vertoning_database(ID_Film, Datum, Moment, DrieD, ID_Zaal):
-    DrieD=True if DrieD=="Ja" else False
+# ------------------ MYSQLITE FUNCTIONS ----------------
 
-    con=sqlite3.connect('data/Databank.db')
-    cur=con.cursor()
-    cur.execute('INSERT INTO Vertoning (ID_Film,Datum,Moment,"3D",ID_Zaal) VALUES (?,?,?,?,?)',(ID_Film, Datum, Moment, DrieD, ID_Zaal))
-    print(f"<green>De Film met titel '{kleur_goud(id_naar_titel(ID_Film))}' werd aan de database van vertoning toegevoegd!</green>")
-    con.commit()
-    con.close()
-    druk_verder()
 
 def insert_film_database(titel, duur, knt, DrieD, IMDB_ID, Poster_link, Beschrijving):
     DrieD=True if DrieD=="Ja" else False
@@ -230,22 +251,58 @@ def insert_film_database(titel, duur, knt, DrieD, IMDB_ID, Poster_link, Beschrij
     con.close()
     druk_verder()
 
+def insert_vertoning_database(ID_Film, Datum, Moment, DrieD, ID_Zaal):
+    DrieD=True if DrieD=="Ja" else False
+
+    con=sqlite3.connect('data/Databank.db')
+    cur=con.cursor()
+    cur.execute('INSERT INTO Vertoning (ID_Film,Datum,Moment,"3D",ID_Zaal) VALUES (?,?,?,?,?)',(ID_Film, Datum, Moment, DrieD, ID_Zaal))
+    print(f"<green>De Film met titel '{kleur_goud(id_naar_titel(ID_Film))}' werd aan de database van vertoning toegevoegd!</green>")
+    con.commit()
+    con.close()
+    druk_verder()
+
+
+def insert_verkoop_database(ID_Vertoning, Tickets_kids, Tickets_standaard, Prijs):
+    con=sqlite3.connect('data/Databank.db')
+    cur=con.cursor()
+    cur.execute('INSERT INTO Verkoop (ID_Vertoning,Tickets_kids,Tickets_standaard,Prijs) VALUES (?,?,?,?)',(ID_Vertoning, Tickets_kids, Tickets_standaard, Prijs))
+    con.commit()
+    con.close()
+
 def delete_film_database(list):
     con=sqlite3.connect('data/Databank.db')
     cur=con.cursor()
     if len(list)==1:
         cur.execute(f'DELETE FROM Film WHERE ID_Film={list[0][0]}')
-        print(f"<red>De Film met titel '{list[0][1]}' werd van de database verwijderd!</red>")
     else:
         for film in list:
             cur.execute(f'DELETE FROM Film WHERE ID_Film={film[0]}')
-            print(f"<red>De Film met titel '{film[1]}' werd van de database verwijderd!</red>")
-    druk_verder()
     con.commit()
     con.close()
 
+def delete_vertoning_database(list):
+    con=sqlite3.connect('data/Databank.db')
+    cur=con.cursor()
+    if len(list)==1: # één
+        cur.execute(f'DELETE FROM Vertoning WHERE ID_Vertoning={list[0][0]}')
+    elif len(list)>1: #alles
+        for vertoning in list:
+            cur.execute(f'DELETE FROM Vertoning WHERE ID_Vertoning={vertoning[0]}')
+    con.commit()
+    con.close()
 
-    
+def delete_verkoop_database(list):
+    con=sqlite3.connect('data/Databank.db')
+    cur=con.cursor()
+    if len(list)==1:
+        cur.execute(f'DELETE FROM Verkoop WHERE Verkoop_ID={list[0][0]}')
+    else:
+        for verkoop in list:
+            cur.execute(f'DELETE FROM Verkoop WHERE Verkoop_ID={verkoop[0]}')
+    con.commit()
+    con.close()
+
 # ------------------ FUNCTIONS SCENARIO ----------------
 
 
@@ -253,28 +310,257 @@ def delete_film_database(list):
 def menu_startpage():
     while True:
         clear_screen_logo()
-        lijst=[f"{kleur_goud('Films')} bewerken",f"{kleur_goud('Vertoningen')} bewerken",f"{kleur_goud('Ticket')} bewerken","<red>Afsluiten</red>"]
+        lijst=[f"{kleur_goud('Films')} bewerken",f"{kleur_goud('Vertoningen')} bewerken",f"{kleur_goud('Verkoop')} bewerken","<red>Afsluiten</red>"]
         keuze=(presentatie_main(lijst))
         if keuze==lijst[0]:
             menu_films_bewerken()
-            
         elif keuze==lijst[1]:
             menu_vertoningen_bewerken()
             sleep(1)
-
         elif keuze==lijst[2]:
-            print("keuze 3 geselecteerd")
+            menu_verkoop_bewerken()
             sleep(1)
 
         elif keuze==lijst[3]:
             clear_screen()
             print("Programma wordt afgesloten. Bedankt en tot de volgende keer.")
             print("<bg #000000>- Günes Topal</bg #000000>")
-            print("<bg #FFDF00><fg #000000>versie: 1.0.1 - 2021/06/02</fg #000000></bg #FFDF00>")
+            print("<bg #FFDF00><fg #000000>versie: 1.0.3 - 2021/06/05</fg #000000></bg #FFDF00>")
             print("<bg #ED0000>gunes.topal@gmail.com</bg #ED0000>")
             sleep(2)
             exit()
+
+# ------------------ MAIN VERKOOP----------------
+def menu_verkoop_bewerken():
+    while True:
+        clear_screen()
+        print("<bg #80C662><black>💲 VERKOOP 💲</black></bg #80C662>")
+        lijst=["Tickets", "Wekelijkse ticketverkoop", "Omzet per film", "Terug"]
+        keuze=(presentatie_main(lijst))
+        if keuze==lijst[0]:
+            menu_verkoop_tickets()
+            continue
+        if keuze==lijst[1]:
+            menu_verkoop_wekelijks()
+            continue
+        if keuze==lijst[2]:
+            menu_verkoop_omzet()
+            continue
+        if keuze==lijst[3]:
+            menu_startpage()
+def menu_verkoop_tickets():
+    while True:
+        clear_screen()
+        print("<bg #80C662><black>💲 VERKOOP - tickets 💲</black></bg #80C662>")
+        lijst=["Ticket verkopen", "Ticket zoeken", "Ticket verwijderen", "Terug"]
+        keuze=(presentatie_main(lijst))
+        if keuze==lijst[0]:
+            menu_verkoop_tickets_verkopen()
+            continue
+        if keuze==lijst[1]:
+            menu_verkoop_tickets_zoeken()
+            continue
+        if keuze==lijst[2]:
+            menu_verkoop_tickets_verwijderen()
+            continue
+        if keuze==lijst[3]:
+            menu_verkoop_bewerken()
+def menu_verkoop_tickets_verkopen():
+    print("Geef de id van vertoning:  ", end="")
+    zoek=getInteger("",minima=1)
+    allefilms=get_inventory_list()
+    alleverkopen=get_verkoop_list()
+    allevertoningen=get_vertoning_list()
+    allezalen=get_zaal_list()
+    zetelstotaal=""
+
+    prijs=0
+    info={}
+    ticket={}
+    for i in allevertoningen:
+        if i[0]==zoek:
+            info["ID_Vertoning"]=i[0]
+            info["Titel"]= i[1][1]
+            info["ID_Film"]= i[1][0]
+            for film in allefilms:
+                if film[0] == i[1][0]:
+                    info["Duur"] = film[2]
+                    info["3D"]="Ja" if film[5]=="Ja" else "Nee"
+                    info["KNT"]= "Ja" if film[3]=="Ja" else "Nee"
+            info["Datum"]=i[2] 
+            info["Moment"]=i[3]
+            info["Zaal"]=i[5]
+
+    for j in allezalen:
+        if j[0]==info["Zaal"]:
+            zetelstotaal=j[2]
+
+    for k in alleverkopen:
+        if k[1]==info["ID_Vertoning"]:
+            zetelstotaal=zetelstotaal-k[2]
+            zetelstotaal=zetelstotaal-k[3]
+
+    if zetelstotaal!=0:
+        if len(info)!=0:
+            print()
+            print("Ticket verkoop voor de film:")
+            print(kleur_goud("Titel:"), info["Titel"])
+            print(kleur_goud("Speelduur:"), info["Duur"])
+            print(kleur_goud("Datum:"), info["Datum"], "om", info["Moment"])
+            print(kleur_goud("Zaal:"), info["Zaal"])
+            print(kleur_goud("In 3D") if info["3D"]=="Ja" else "")
+        else:
+            print("<red>Geen resultaat gevonden.</red>")
+            sleep(1)        
+            return
+
+        print()
+
+        ticket['ID_Vertoning']=zoek
+        ticket['3D']=prijs_ticket['3D'] if info["3D"]=="Ja" else 0
+        ticket['Langspeel']=prijs_ticket['langspeel'] if info["Duur"]>120 else 0
+
+        print(f"Er zijn {zetelstotaal} plaatsen vrij voor deze vertoning.")
+        print("Aantal volwassenen?  ", end="")
+        ticket['standaard']=getInteger("",minima=0,maxima=zetelstotaal)
+        zetelstotaal-=ticket['standaard']
+
+
+        if info["KNT"]== "Ja" or zetelstotaal==0: #Geen vraag voor tickets kinderen als het een mature film is
+            ticket['kids']=0
+
+        else:
+            print("Aantal kinderen?  ", end="")
+            ticket['kids']=getInteger("",minima=0,maxima=zetelstotaal)
+
+
+
+        if info["KNT"]== "Ja": 
+            prijs= (ticket['standaard'] * (prijs_ticket['standaard']+ticket['3D']+ticket['Langspeel']))
+        else:
+            prijs= (ticket['standaard'] * (prijs_ticket['standaard']+ticket['3D']+ticket['Langspeel'])) + (prijs_ticket['kids']+ticket['kids'] * (ticket['3D']+ticket['Langspeel']))
+
+
+        print("De <u>totale kost</u> voor deze verkoop is € {:.2f}".format(prijs))
+        antwoord=druk_neeja()
+        if antwoord:
+            insert_verkoop_database(zoek, ticket['kids'], ticket['standaard'], prijs)
+            print(f"<green>Ticket nummer {kleur_goud(zoek)} is bevestigd! </green>")
+            sleep(0.5)
+            print(f"De ticket wordt afgedrukt..")
+            sleep(1.5)
+            print(f"Geniet van de film!")
+            print(f"Er zijn {zetelstotaal} plaatsen vrij voor deze vertoning.")        
+    else:
+        print("Onze excuses, er zijn voor deze vertoning geen plaatsen meer beschikbaar.")
+    druk_verder()
+def menu_verkoop_tickets_zoeken():
+    print("Geef de id van het ticket:")
+    zoek=getInteger("",minima=1)
+    alletickets=get_verkoop_list()
+    allevertoningen=get_vertoning_list()
+    info=[]
+    for i in alletickets:
+        if i[0]==zoek:
+            print("<blue>Gegevens ticket:</blue>")
+            print(f"{kleur_goud('ID:')}{i[0]}")
+            for vertoning in allevertoningen:
+                if vertoning[0] == i[1]:
+                    info.append(f"{kleur_goud('Film:')} {vertoning[1][1]}") 
+                    info.append(f"op <u>{vertoning[2]}</u> om {vertoning[3]} uur in zaal {vertoning[5]}")
+                    info.append(f"in 3D." if vertoning[4]=="Ja" else "zonder 3D.")
+            info.append(f"{kleur_goud('Omschrijving:')}")
+            info.append(f"{i[3]} standaard {'tickets' if i[3]!=1 else 'ticket'}")
+            info.append(f"{i[2]} kinder {'tickets' if i[2]!=1 else 'ticket'}")
+            info.append("Prijs: € {:.2f}".format(i[4]))
+    if len(info)!=0:
+        for toon in info:
+            print(toon)
+    else:
+        print("<red>Geen resultaat gevonden.</red>")
+        sleep(1)
+    druk_verder()
+def menu_verkoop_tickets_verwijderen():
+    while True:
+
+        print("Geef de id van het ticket:")
+        zoek=getInteger("",minima=1)
+        alletickets=get_verkoop_list()
+        allevertoningen=get_vertoning_list()
+        try:
+            resultaat=[i for i in alletickets if i[0]==zoek]
+            break
+        except ValueError:
+            print("Fout")
+            continue
+    print(f'U staat op het moment om de ticket met nummer "{kleur_goud(zoek)}" te wissen.')
+    for i in alletickets:
+        if i[0]==zoek:
+            print("<blue>Gegevens ticket:</blue>")
+            print(f"{kleur_goud('ID:')}{i[0]}")
+            for vertoning in allevertoningen:
+                if vertoning[0] == i[1]:
+                    print(f"{kleur_goud('Film:')} {vertoning[1][1]}") 
+                    print(f"op <u>{vertoning[2]}</u> om {vertoning[3]} uur in zaal {vertoning[5]}")
+                    print(f"in 3D." if vertoning[4]=="Ja" else "zonder 3D.")
+            print(f"{kleur_goud('Omschrijving:')}{i[0]}")
+            print(f"{i[3]} standaard {'tickets' if i[3]!=1 else 'ticket'}")
+            print(f"{i[2]} kinder {'tickets' if i[2]!=1 else 'ticket'}")
+            print("Prijs: € {:.2f}".format(i[4]))
+    antwoord=druk_neeja()
+    if antwoord:
+        delete_verkoop_database(resultaat)
+        print(f"<red>Ticket nummer {kleur_goud(zoek)} werd gewist!</red>")
+    druk_verder()
+    
+
+
+
+def menu_verkoop_wekelijks():
+    while True:
+        clear_screen()
+        print("<bg #80C662><black>💲 VERKOOP - cijfers 💲</black></bg #80C662>")
+        lijst=["Cijfers per week", "Tickets per film per week", "Terug"]
+        keuze=(presentatie_main(lijst))
+        if keuze==lijst[0]:
+            menu_verkoop_cijfers_week()
+            continue
+        if keuze==lijst[1]:
+            menu_verkoop_cijfers_filmweek()
+            continue
+        if keuze==lijst[2]:
+            menu_verkoop_bewerken()
+def menu_verkoop_cijfers_week():
+    pass
+def menu_verkoop_cijfers_filmweek():
+    pass
+
+
+def menu_verkoop_omzet():
+    while True:
+        clear_screen()
+        print("<bg #80C662><black>💲 VERKOOP - omzet 💲</black></bg #80C662>")
+        lijst=["Totale omzet per film", "Records", "Terug"]
+        keuze=(presentatie_main(lijst))
+        if keuze==lijst[0]:
+            menu_verkoop_omzet_film()
+            continue
+        if keuze==lijst[1]:
+            menu_verkoop_omzet_records()
+            continue
+        if keuze==lijst[2]:
+            menu_verkoop_bewerken()
+def menu_verkoop_omzet_film():
+    pass
+def menu_verkoop_omzet_records():
+    pass
+
+
+
+
+
 # ------------------ MAIN VERTONING----------------
+
 def menu_vertoningen_bewerken():
     while True:
         clear_screen()
@@ -299,11 +585,6 @@ def menu_vertoningen_bewerken():
 
 def menu_vertoning_verwijderen():
     menu_vertoning_tonen(1)
-
-
-def menu_vertoning_zoeken():
-    pass
-
 
 def menu_vertoning_toevoegen():
     clear_screen()
@@ -339,10 +620,12 @@ def menu_vertoning_toevoegen():
     while True or not loop:
         DrieD=resultaat[0][5]
         zalen=get_zaal_list()
-
+        loop=False
 # Zaalkeuze !!!!!!!!!!!!
-        zaal=getInteger("Zaal id: ",1,7)
+        zaal=getInteger("Zaal id: ",0,7)
     # controle als 3D film in een 3D zaal kan afspelen
+        if zaal==0:
+            return
         for i in zalen:
             if i[0]==zaal and i[1]=='Nee' and DrieD=='Ja':
                 print(f"<red>Zaal {kleur_goud(zaal)} kan geen 3D films afspelen.</red>")
@@ -353,8 +636,6 @@ def menu_vertoning_toevoegen():
                 loop=False
         if loop:
             continue
-
-
         vertoning=get_vertoning_list(datum,None,zaal)
         lijst_vertoning_tijdspanne=""
         if len(vertoning)!=0:
@@ -389,7 +670,9 @@ def menu_vertoning_toevoegen():
                 print(f"Uw keuze komt in conflict met de film: '{kleur_goud(conflictfilm[0][1][1])}', die om {kleur_goud(conflictfilm[0][2])} uur in zaal {kleur_goud(zaal)} gepland staat.")
                 loop=True
                 druk_continue()
-                continue
+                break
+
+        print("hier")
         if loop:
             continue
         else:
@@ -414,7 +697,6 @@ def menu_vertoning_toevoegen():
     datum=datum[-10::1]
     insert_vertoning_database(idkeuze, datum, moment, DrieD, zaal)
     return None
-
 def menu_vertoning_tonen(delete=None):
     while True:
         clear_screen()
@@ -432,7 +714,6 @@ def menu_vertoning_tonen(delete=None):
         elif keuze==lijst[2]:
             menu_vertoningen_bewerken()
             break
-
 def menu_vertoning_toon_op_datum(delete=None):
     while True:
         clear_screen()
@@ -449,21 +730,29 @@ def menu_vertoning_toon_op_datum(delete=None):
         break
     druk_verder() if not delete else druk_continue()
     # return None if not delete or len(get_vertoning_list(datum,None,None))==0 else print("Heya")
-    if delete or len(get_vertoning_list(datum,None,None))!=0:
-        lijst=["<red>Verwijder</red> keuze","Alles <red>Verwijderen</red>","<fg #00BAFF>Annuleren</fg #00BAFF>"]
+    if delete and len(get_vertoning_list(datum,None,None))!=0:
+        lijst=["<red>Verwijder</red> één vertoning","<red>Verwijderen</red> alle vertoningen","<fg #00BAFF>Annuleren</fg #00BAFF>"]
         keuze=presentatie_main(lijst)
         if keuze==lijst[0]:
-            print(resultaat)
-            druk_verder()
+            vrwkeuze=[(presentatie_main(resultaat, 1))]
+            antwoord=druk_neeja()
+            if antwoord:
+                print(f"De vertoning")
+                print(f"id: {vrwkeuze[0][1][0]} titel: '{vrwkeuze[0][1][1]}'")
+                print(f"Datum: {vrwkeuze[0][2]} om {vrwkeuze[0][3]}")
+                print(f"{'<green>Met 3D</green>' if vrwkeuze[0][4]=='Ja' else 'Zonder 3D'}")
+                print(f"Zaal: {vrwkeuze[0][5]}")
+                print(f"<red>...werd van de database verwijderd!</red>")
+                delete_vertoning_database(vrwkeuze)
+                druk_verder()
         elif keuze==lijst[1]:
-            print(resultaat)
-            druk_verder()
+            antwoord=druk_neeja()
+            if antwoord:
+                print(f"<red>Alle vertoningen zijn verwijderd!</red>")
+                delete_vertoning_database(resultaat) 
+                druk_verder()
         elif keuze==lijst[2]:
             return
-
-
-
-
 def menu_vertoning_toon_op_film(delete=None):
     while True:
         clear_screen()
@@ -473,18 +762,41 @@ def menu_vertoning_toon_op_film(delete=None):
         zoek=input()
         if not zoek:
             return None
-        if type(zoek)==int:
-            zoek=(int(zoek) if int(zoek[0]) in [0,1,2,3,4,5,6,7,8,9] else str(zoek))
+        zoek=(int(zoek) if zoek[0] in ['0','1','2','3','4','5','6','7','8','9'] else str(zoek))
         resultaat=get_vertoning_list(None,zoek,None)
         if len(resultaat)==0:
             print("<red>Geen resultaat gevonden.</red>")
+            sleep(1)
+            druk_verder() if delete else None
+
         else:
             print(show_table_vertoning(get_vertoning_list(None,zoek,None)))
         break
     if not delete:
         druk_verder()
-    else:
-        print("tot hier")
+    if delete and len(resultaat)!=0:
+        lijst=["<red>Verwijder</red> één vertoning","<red>Verwijderen</red> alle vertoningen","<fg #00BAFF>Annuleren</fg #00BAFF>"]
+        keuze=presentatie_main(lijst)
+        if keuze==lijst[0]:
+            vrwkeuze=[(presentatie_main(resultaat, 1))]
+            print(vrwkeuze)
+            antwoord=druk_neeja()
+            if antwoord:
+                print(f"De vertoning")
+                print(f"id: {vrwkeuze[0][1][0]} titel: '{vrwkeuze[0][1][1]}'")
+                print(f"Datum: {vrwkeuze[0][2]} om {vrwkeuze[0][3]}")
+                print(f"{'<green>Met 3D</green>' if vrwkeuze[0][4]=='Ja' else 'Zonder 3D'}")
+                print(f"Zaal: {vrwkeuze[0][5]}")
+                print(f"<red>...werd van de database verwijderd!</red>")
+                delete_vertoning_database(vrwkeuze) 
+        elif keuze==lijst[1]:
+            print(resultaat)
+            antwoord=druk_neeja()
+            if antwoord:
+                print(f"<red>Alle vertoningen zijn verwijderd!</red>")
+                delete_vertoning_database(resultaat) 
+        elif keuze==lijst[2]:
+            return
 
 # ------------------ MAIN FILMS----------------
 def menu_films_bewerken():
@@ -630,7 +942,7 @@ def menu_film_verwijderen():
             druk_verder()
             continue
     
-        if len(resultaat)>1:
+        if len(resultaat)>1 and len(resultaat)<=5:
             print(f"Er zijn {len(resultaat)} resultaten.")
             print(f'U staat op het moment om de films met titels:')
             print('-'*20)
@@ -639,12 +951,39 @@ def menu_film_verwijderen():
             print('-'*20)
             print("te verwijderen.")
         else:
-            print(f'U staat op het moment om de film met titel "{resultaat[0][1]}" te wissen.')
+            print(f'U staat op het moment om de film met titel "{kleur_goud(resultaat[0][1])}" te wissen.')
 
+# Wat als de film die je wil verwijderen nog vertoont zal worden?
+        idfilm=[x[0] for x in resultaat]
+        print()
+        geplandevertoning=[]
+        for x in idfilm:
+            if len(get_vertoning_list(datum=None,film_id=x, zaal=None)) ==1:
+                geplandevertoning.append(get_vertoning_list(datum=None,film_id=x, zaal=None)[0])
+                print(f"{kleur_goud(1)} vertoning van {kleur_goud(id_naar_titel(x))}.")
+            else:
+                for item in get_vertoning_list(datum=None,film_id=x, zaal=None):
+                    geplandevertoning.append(item)
+                print(f"{kleur_goud(len(get_vertoning_list(datum=None,film_id=x, zaal=None)))} vertoningen van {kleur_goud(id_naar_titel(x))}.")
+
+        print()
+
+
+        if len(geplandevertoning)==1:
+            print(f"<red>Er is {kleur_goud(len(geplandevertoning))} vertoning met die film.</red>")
+            print(f"Wilt u de gekozen film met zijn vertoning(en) verwijderen?")
+        else:
+            if len(geplandevertoning)>1:
+                print(f"<red>Als u bevestigt, worden er in het totaal {kleur_goud(len(geplandevertoning))} vertoningen samen met de films verwijderd !!!</red>")
+                print(f"Wilt u de gekozen films met hun vertoningen verwijderen?")
+            if len(geplandevertoning)==0:
+                print(f"Wilt u de gekozen film verwijderen?")
         antwoord=druk_neeja()
         if antwoord:
+            delete_vertoning_database(geplandevertoning)
             delete_film_database(resultaat)
-
-        break
+        
+        druk_verder()
 
 menu_startpage()
+# menu_verkoop_tickets_verkopen()

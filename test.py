@@ -1,4 +1,3 @@
-def dragon(verwijder=None):
-    return "Toevoegen" if not verwijder else "Verwijderen"
-
-print(dragon(1))
+test={1:"ja",2:"Nee",3:"Misschien"}
+for key in test:
+    print(key, test[key])
