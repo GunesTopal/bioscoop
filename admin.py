@@ -7,7 +7,6 @@ from prettytable import PrettyTable, from_db_cursor
 from sql_list import sql_film_database, sql_vertoning_database, sql_zaal_database, sql_verkoop_database
 from tools.movie_request import vind_film_via_imdb
 from datetime import datetime, timedelta
-from fancy.table import ConsoleColor, create_table
 import locale
 locale.setlocale(locale.LC_ALL, "")
 
@@ -83,6 +82,9 @@ def datum_ingave(prompt, delete=None):
                 datum=datum.strftime("%d/%m/%Y")
                 datum=datetime.strptime(datum,"%d/%m/%Y")
                 print(datum.strftime("%d/%m/%Y"))
+            elif len(datum)==8:
+                datum=datum[:6]+"20"+datum[6:8]
+                datum=datetime.strptime(datum,"%d/%m/%Y")
             else:
                 datum=datetime.strptime(datum,"%d/%m/%Y")
         except TypeError:
@@ -103,6 +105,8 @@ def moment_ingave(prompt):
             moment=input(prompt)
             if not moment:
                 continue
+            elif moment=="0":
+                return
             else:
                 if len(moment)==2:
                     moment=moment+':00'
@@ -266,31 +270,10 @@ def get_verkoop_list():
 
 
 def show_table_inventory(list):
-    # x=PrettyTable()
-    # x.field_names=["ID","Titel","Duur","KNT","IMDB", "3D Film"]
-    # x.add_rows(list)
-    # return x
-
-    data = list
-    headers = ["ID","Titel","Duur","KNT","IMDB", "3D Film"]
-    header_colors = {
-        "ID": ConsoleColor.BOLD,
-        "Titel": ConsoleColor.GREEN + ConsoleColor.BOLD,
-        "Duur": ConsoleColor.RED + ConsoleColor.BOLD,
-        "KNT": ConsoleColor.BLUE + ConsoleColor.BOLD,
-        "KNT": ConsoleColor.PURPLE + ConsoleColor.BOLD,
-        "IMDB": ConsoleColor.YELLOW + ConsoleColor.BOLD,
-        "3D Film": ConsoleColor.CYAN + ConsoleColor.BOLD
-    }
-
-    column_colors = {
-        "Id": ConsoleColor.UNDERLINE,
-        "Titel": ConsoleColor.ITALIC,
-        "Duur": lambda x: ConsoleColor.RED if x > 120 else ConsoleColor.YELLOW
-    }
-
-    return (create_table(data, headers, header_colors, column_colors))
-
+    x=PrettyTable()
+    x.field_names=["ID","Titel","Duur","KNT","IMDB", "3D Film"]
+    x.add_rows(list)
+    return x
 
 def show_table_vertoning(list):
     x=PrettyTable()
@@ -428,7 +411,7 @@ def menu_startpage():
             clear_screen()
             print("Programma wordt afgesloten. Bedankt en tot de volgende keer.")
             print("<bg #000000>- Günes Topal</bg #000000>")
-            print("<bg #FFDF00><fg #000000>versie: 1.0.5 - 2021/06/09</fg #000000></bg #FFDF00>")
+            print("<bg #FFDF00><fg #000000>versie: 1.0.6 - 2021/06/09</fg #000000></bg #FFDF00>")
             print("<bg #ED0000>gunes.topal@gmail.com</bg #ED0000>")
             sleep(2)
             exit()
@@ -919,7 +902,7 @@ def menu_vertoning_toevoegen():
         print("<b>Datum van uw vertoning:</b>")
         print(f"<fg #B15700><b>Tip:</b></fg #B15700> bijvoorbeeld '{kleur_goud('31/05/2021')}'")
         
-        datum=datum_ingave("Datum: ")    
+        datum=datum_ingave("Datum: ")
         if datetime.strptime(datum, "%d/%m/%Y") < datetime.strptime(vandaag_datum,"%d/%m/%Y"):
             print("<red>U kunt <u>geen</u> vertoningen plannen in het verleden.</red>")
             druk_verder()
@@ -973,17 +956,19 @@ def menu_vertoning_toevoegen():
         print(f"<fg #B15700><b>Tip:</b></fg #B15700> bijvoorbeeld '{kleur_goud('12:00')}'")
         while True:
             moment=moment_ingave("Tijd: ")
-            if moment=="":
-                print("Geef een tijd in. (TOEKOMST)")
+            if not moment:
+                return
+            # if not lijst_vertoning_tijdspanne:
+            if datum==vandaag_datum and datetime.strptime(f"{datum} {moment}", '%d/%m/%Y %H:%M')<datetime.strptime(f"{vandaag_datum} {vandaag_tijd}", '%d/%m/%Y %H:%M') or datetime.strptime(f"{datum} {moment}", '%d/%m/%Y %H:%M')<datetime.strptime(f"{vandaag_datum} {vandaag_tijd}", '%d/%m/%Y %H:%M')+timedelta(hours=2):
+                print("<red>U kunt <u>geen</u> vertoningen plannen in het verleden.</red>")
+                print("<red>De voorstelling mag maximum 2 uur op voorhand plaats vinden.</red>")
+                print(f"<fg #FF7E00>Type '{kleur_goud(0)}' om uit het menu te gaan.</fg #FF7E00>")
                 continue
-            if lijst_vertoning_tijdspanne!="":
-                if datum==vandaag_datum and datetime.strptime(moment, '%H:%M')<datetime.strptime(vandaag_tijd, '%H:%M'):
-                    print("<red>U kunt <u>geen</u> vertoningen plannen in het verleden.</red>")
-                    continue
             break
         print()
 # controle of de startmoment van keuze valt tussen lopende vertoningen  !!!!!!!!!!!!
-        keuze_eindmoment=datetime.strptime(f"{datum} {moment}", '%d/%m/%Y %H:%M')+timedelta(minutes=duurkeuze)
+        keuze_eindmoment=datetime.strptime(f"{datum} {moment}", '%d/%m/%Y %H:%M')
+        keuze_eindmoment=keuze_eindmoment+timedelta(minutes=duurkeuze)
         keuze_eindmoment=keuze_eindmoment.strftime('%d/%m/%Y %H:%M')
         keuze_tijdspanne=[f"{datum} {moment}", keuze_eindmoment]
     
@@ -995,8 +980,6 @@ def menu_vertoning_toevoegen():
                 loop=True
                 druk_continue()
                 break
-
-        print("hier")
         if loop:
             continue
         else:
@@ -1012,12 +995,7 @@ def menu_vertoning_toevoegen():
     print("Is dit OK?")
     antwoord=druk_neeja()
     if not antwoord:
-        print("Verder gaan?")
-        antwoord=druk_neeja()
-        if not antwoord:
-            return None
-        else:
-            menu_vertoning_toevoegen()
+        menu_vertoning_toevoegen()
     datum=datum[-10::1]
     insert_vertoning_database(idkeuze, datum, moment, DrieD, zaal)
     print(f"<green>De Film met titel '{kleur_goud(id_naar_titel(idkeuze))}' werd aan de database van vertoning toegevoegd!</green>")
