@@ -7,6 +7,7 @@ from prettytable import PrettyTable, from_db_cursor
 from sql_list import sql_film_database, sql_vertoning_database, sql_zaal_database, sql_verkoop_database
 from tools.movie_request import vind_film_via_imdb
 from datetime import datetime, timedelta
+from fancy.table import ConsoleColor, create_table
 import locale
 locale.setlocale(locale.LC_ALL, "")
 
@@ -114,6 +115,24 @@ def moment_ingave(prompt):
     moment=moment.strftime("%H:%M")
 
     return moment
+
+def datumsvoorweek(week,jaar): #Neemt week bv '04' en maakt een list van datums ('25/01/2021', '26/01/2021', '27/01/2021', '28/01/2021', '29/01/2021', '30/01/2021', '31/01/2021') -> 
+    week=str(week)
+    if len(week)==1:
+        week='0'+week
+    year=str(jaar)
+    date=datetime.strptime(year,"%Y")
+    resultaat=[]
+    for i in range (365):
+        date=date+timedelta(days=1)
+        if date.strftime('%W')==week:
+            resultaat.append(date.strftime('%d/%m/%Y'))
+    return resultaat
+
+def weekvoordatum(datum): #Verandert datum (29/01/2021) -> 04
+    datum=datetime.strptime(datum,"%d/%m/%Y")
+    week=datum.strftime('%W')
+    return week
 
 def controle_dubbels(lijst): 
     controlelijst = []
@@ -244,11 +263,34 @@ def get_verkoop_list():
     return resultaat
 
 
+
+
 def show_table_inventory(list):
-    x=PrettyTable()
-    x.field_names=["ID","Titel","Duur","KNT","IMDB", "3D Film"]
-    x.add_rows(list)
-    return x
+    # x=PrettyTable()
+    # x.field_names=["ID","Titel","Duur","KNT","IMDB", "3D Film"]
+    # x.add_rows(list)
+    # return x
+
+    data = list
+    headers = ["ID","Titel","Duur","KNT","IMDB", "3D Film"]
+    header_colors = {
+        "ID": ConsoleColor.BOLD,
+        "Titel": ConsoleColor.GREEN + ConsoleColor.BOLD,
+        "Duur": ConsoleColor.RED + ConsoleColor.BOLD,
+        "KNT": ConsoleColor.BLUE + ConsoleColor.BOLD,
+        "KNT": ConsoleColor.PURPLE + ConsoleColor.BOLD,
+        "IMDB": ConsoleColor.YELLOW + ConsoleColor.BOLD,
+        "3D Film": ConsoleColor.CYAN + ConsoleColor.BOLD
+    }
+
+    column_colors = {
+        "Id": ConsoleColor.UNDERLINE,
+        "Titel": ConsoleColor.ITALIC,
+        "Duur": lambda x: ConsoleColor.RED if x > 120 else ConsoleColor.YELLOW
+    }
+
+    return (create_table(data, headers, header_colors, column_colors))
+
 
 def show_table_vertoning(list):
     x=PrettyTable()
@@ -268,6 +310,15 @@ def show_table_cijfers_week_film(dic):
     x.field_names=["ID_Film","Titel_Film","Week","Omzet in €","Tickets verkocht","Volwassenen","Kinderen"]
     x.add_row(gegevens)
     return x
+
+def show_table_cijfers_week_all(lijst):
+
+    x=PrettyTable()
+    x.field_names=["Week","Titel_Film","Tickets verkocht"]
+    for i in lijst:
+        x.add_row([i["Week"], i["Titel"], i["Tickets"]])
+    return x
+
 
 def show_table_record(lijst):
     gegevens=[]
@@ -377,7 +428,7 @@ def menu_startpage():
             clear_screen()
             print("Programma wordt afgesloten. Bedankt en tot de volgende keer.")
             print("<bg #000000>- Günes Topal</bg #000000>")
-            print("<bg #FFDF00><fg #000000>versie: 1.0.3 - 2021/06/05</fg #000000></bg #FFDF00>")
+            print("<bg #FFDF00><fg #000000>versie: 1.0.5 - 2021/06/09</fg #000000></bg #FFDF00>")
             print("<bg #ED0000>gunes.topal@gmail.com</bg #ED0000>")
             sleep(2)
             exit()
@@ -595,13 +646,65 @@ def menu_verkoop_wekelijks():
             continue
         if keuze==lijst[2]:
             menu_verkoop_bewerken()
-def menu_verkoop_cijfers_week():
-    menu_verkoop_cijfers_filmweek(1)
 
-def menu_verkoop_cijfers_filmweek(alles=None): #TODO: laatste stuk G, you can do it
+def menu_verkoop_cijfers_week():#TODO:LAST PART BRO
+    jaar='2021'#input("Jaar: ")
+    if not jaar:
+        clear_screen()
+        print("<bg #80C662><black>📆 VERKOOP - cijfers - FILM - WEEK 📆</black></bg #80C662>")
+        jaar=vandaag_jaar
+        print("Jaar: 2021")
+    if not jaar[0]=="2" or not len(jaar)==4:
+        print(f"Geef een geldig jaar in, bijvoorbeeld '{kleur_goud(2021)}'")
+        sleep(1)
+        menu_verkoop_cijfers_week()
+
+    datumsinweken={} # vb: {1: ['04/01/2021', '05/01/2021', '06/01/2021', '07/01/2021', '08/01/2021', '09/01/2021', '10/01/2021']}
+    for weeknummer in range(53):
+        if weeknummer!=0:
+            datumsinweken[weeknummer]=datumsvoorweek(weeknummer,2021)
+    
+    proef=[]
+
+    allevertoningen=get_vertoning_list() #vb: [7, (1, 'Forrest Gump'), '04/06/2021', '10:00', 'Nee', 7]
+    alleverkopen=get_verkoop_list() #vb: [1, 1, 2, 2, 32.0]
+    allefilms=get_inventory_list() #vb: [18, 'Alien', 122, 'Ja', 'tt2316204', 'Nee']
+
+    for film in allefilms:
+        clear_screen()
+        loading=int((allefilms.index(film)+1)/(len(allefilms))*100)
+        if loading!=100:
+            print(loading,'% loaded, please wait.')
+
+        for waarden in datumsinweken: #returnt een lijst van datums van een bepaalde week bv ['04/01/2021', '05/01/2021', '06/01/2021', '07/01/2021', '08/01/2021', '09/01/2021', '10/01/2021'] van week 2
+            info={'Week':'', 'Titel':'', 'Film ID':'', 'Duur':'', '3D':'', 'Tickets':0, 'Volwassenen':0,'Kinderen':0,'Omzet':0}
+            for vertoning in allevertoningen:
+                # print(vertoning)
+                for verkoop in alleverkopen:
+                    # print(verkoop)
+                    if film[0] == vertoning[1][0] and vertoning[0] == verkoop[1]:
+                        if vertoning[2] in datumsinweken.get(waarden):
+                            info["Titel"]=film[1]
+                            info["Film ID"]=film[0]
+                            info["Duur"]=film[2]
+                            info["3D"]=vertoning[4]
+                            info["Week"]=waarden
+                            info["Tickets"]=info["Tickets"]+verkoop[2]+verkoop[3]
+                            info["Volwassenen"]=info["Volwassenen"]+verkoop[3]
+                            info["Kinderen"]=info["Kinderen"]+verkoop[2]
+                            info["Omzet"]=info["Omzet"]+verkoop[4]
+                            proef.append(info)
+    resultaat=(controle_dubbels(proef))
+    #vb: [{'Week': 22, 'Titel': 'Back to the Future', 'Film ID': 14, 'Duur': 116, '3D': 'Nee', 'Tickets': 60, 'Volwassenen': 35, 'Kinderen': 25, 'Omzet': 518.0},...]
+    print("<bg #80C662><black>📆 VERKOOP - cijfers - WEEK 📆</black></bg #80C662>")
+    print(show_table_cijfers_week_all(resultaat))
+    druk_verder()
+            
+
+def menu_verkoop_cijfers_filmweek(): 
 
     clear_screen()
-    print("<bg #80C662><black>📆 VERKOOP - cijfers - FILM - WEEK 📆</black></bg #80C662>" if  not alles else "<bg #80C662><black>📆 VERKOOP - cijfers - WEEK 📆</black></bg #80C662>")
+    print("<bg #80C662><black>📆 VERKOOP - cijfers - FILM - WEEK 📆</black></bg #80C662>")
     
     allefilms=get_inventory_list()
     alleverkopen=get_verkoop_list()
@@ -628,43 +731,39 @@ def menu_verkoop_cijfers_filmweek(alles=None): #TODO: laatste stuk G, you can do
             continue
         datum=datetime.strptime(jaar,"%Y")
 
-        for i in range (365):
-            datum=datum+timedelta(days=1)
-            if datum.strftime('%W')==week:
-                weekdatums.append(datum.strftime('%d/%m/%Y'))
-        if not alles:
-            print("<b>Kies film:</b> ")
-            print(f"<fg #B15700><b>Tip:</b></fg #B15700> bijvoorbeeld '{kleur_goud('4')} of '{kleur_goud('Toy Story')}'")
-            try:
-                zoek=input("")
-                if not zoek:
-                    return None
-                if zoek[0] in ['1','2','3','4','5','6','7','8','9']:
-                    zoek=int(zoek)
-            except ValueError:
-                print(f"<red>Geen geldige invoer.</red>")
-                print(f"<red>Opnieuw proberen?</red>")
-                antwoord=druk_neeja()
-                if not antwoord:
-                    return None
+        weekdatums=datumsvoorweek(week,jaar)
 
-                continue
+        print("<b>Kies film:</b> ")
+        print(f"<fg #B15700><b>Tip:</b></fg #B15700> bijvoorbeeld '{kleur_goud('4')} of '{kleur_goud('Toy Story')}'")
+        try:
+            zoek=input("")
+            if not zoek:
+                return None
+            if zoek[0] in ['1','2','3','4','5','6','7','8','9']:
+                zoek=int(zoek)
+        except ValueError:
+            print(f"<red>Geen geldige invoer.</red>")
+            print(f"<red>Opnieuw proberen?</red>")
+            antwoord=druk_neeja()
+            if not antwoord:
+                return None
+
+            continue
         break
 
-    if not alles:
-        proef=get_vertoning_list(None,zoek,None)
-        if len(proef)==0:
-            print("<red>Geen resultaat gevonden.</red>")
-            sleep(1)
+    proef=get_vertoning_list(None,zoek,None)
+    if len(proef)==0:
+        print("<red>Geen resultaat gevonden.</red>")
+        sleep(1)
     
-        keuzevertoning=[i for i in proef if i[2] in weekdatums]
+    keuzevertoning=[i for i in proef if i[2] in weekdatums]
     if len(keuzevertoning)==0:
         print(f"<red>Geen resultaat gevonden voor week {kleur_goud(week)}.</red>")
         sleep(1)        
         return
     info={"ID_Vertoning":[], "Week":week, "Datum":[], "Moment":[], "Zaal":[], "Tickets":0,"Volwassenen":0,"Kinderen":0, "Omzet":0}
 
-    for j in keuzevertoning:#TODO:hier zit iets fout
+    for j in keuzevertoning:
         info["ID_Vertoning"].append(j[0])
         info["Titel"]= j[1][1]
         info["ID_Film"]= j[1][0]
@@ -677,7 +776,6 @@ def menu_verkoop_cijfers_filmweek(alles=None): #TODO: laatste stuk G, you can do
         print("<red>Geen resultaat gevonden.</red>")
         sleep(1)        
         return
-    #TODO:GEGEVENS VAN VERKOOP INGEVEN
     for k in info['ID_Vertoning']:
         for l in alleverkopen:
             if k==l[1]:
@@ -704,7 +802,7 @@ def menu_verkoop_omzet():
             continue
         if keuze==lijst[2]:
             menu_verkoop_bewerken()
-def menu_verkoop_omzet_film(record=None):#TODO:Totale omzet per film moet gecorrigeerd worden
+def menu_verkoop_omzet_film(record=None):
     clear_screen()
     print("<bg #80C662><black>💲 VERKOOP - omzet - FILM💲</black></bg #80C662>" if not record else "<bg #80C662><black>💲 VERKOOP - omzet - RECORD💲</black></bg #80C662>")
     keuze=menu_film_zoeken() if not record else ()
@@ -1268,4 +1366,3 @@ def menu_film_verwijderen():
         druk_verder()
 
 menu_startpage()
-# menu_verkoop_omzet_records()
