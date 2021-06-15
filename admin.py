@@ -4,7 +4,8 @@ from ansimarkup import ansiprint as print
 import os
 from time import sleep
 from prettytable import PrettyTable, from_db_cursor
-from sql_list import sql_film_database, sql_vertoning_database, sql_zaal_database, sql_verkoop_database
+from db.databasemanager import *
+from db.sql_list import sql_film_database, sql_vertoning_database, sql_zaal_database, sql_verkoop_database
 from tools.movie_request import vind_film_via_imdb
 from datetime import datetime, timedelta
 import locale
@@ -207,64 +208,64 @@ def presentatie_main(lijst, nulerbij=None):
         break
     return keuze_dict[keuze]
 
-def get_zaal_list():
-    resultaat=[]
-    for rij in sql_zaal_database():
-        resultaat.append([rij.ID_Zalen, 'Ja' if rij.DrieD_Zalen_beschikbaar==1 else 'Nee', rij.Plaatsen])
+# def get_zaal_list():
+#     resultaat=[]
+#     for rij in sql_zaal_database():
+#         resultaat.append([rij.ID_Zalen, 'Ja' if rij.DrieD_Zalen_beschikbaar==1 else 'Nee', rij.Plaatsen])
 
-    resultaat.sort(key=lambda x:x[0])
-    return resultaat
+#     resultaat.sort(key=lambda x:x[0])
+#     return resultaat
 
-def get_inventory_list():
-    resultaat=[]
-    for rij in sql_film_database():
-        resultaat.append([rij._ID_Film, rij._Titel, rij.Duur, 'Ja' if rij.KNT==1 else 'Nee', rij.IMDB_ID, 'Ja' if rij.DrieD_beschikbaar==1 else 'Nee'])
+# def get_inventory_list():
+#     resultaat=[]
+#     for rij in sql_film_database():
+#         resultaat.append([rij._ID_Film, rij._Titel, rij.Duur, 'Ja' if rij.KNT==1 else 'Nee', rij.IMDB_ID, 'Ja' if rij.DrieD_beschikbaar==1 else 'Nee'])
     
-    resultaat.sort(key=lambda x:x[1].lower())
-    return resultaat
+#     resultaat.sort(key=lambda x:x[1].lower())
+#     return resultaat
 
-def get_vertoning_list(datum=None,film_id=None, zaal=None):
-    resultaat=[]
-    resultaat_datum=[]
-    resultaat_film=[]
-    resultaat_idorfilm=[]
-    ttt=""
-    resultaat_film=[(i._ID_Film,i._Titel) for i in sql_film_database()]
+# def get_vertoning_list(datum=None,film_id=None, zaal=None):
+#     resultaat=[]
+#     resultaat_datum=[]
+#     resultaat_film=[]
+#     resultaat_idorfilm=[]
+#     ttt=""
+#     resultaat_film=[(i._ID_Film,i._Titel) for i in sql_film_database()]
 
-    for rij in sql_vertoning_database():
-        for tt in resultaat_film:
-            if tt[0]==rij._ID_Film:
-                ttt=(tt[0],tt[1])
-        resultaat.append([rij._ID_Vertoning, ttt, rij.Datum,  rij.Moment,'Ja' if rij.DrieD==1 else 'Nee', rij.ID_Zaal])
+#     for rij in sql_vertoning_database():
+#         for tt in resultaat_film:
+#             if tt[0]==rij._ID_Film:
+#                 ttt=(tt[0],tt[1])
+#         resultaat.append([rij._ID_Vertoning, ttt, rij.Datum,  rij.Moment,'Ja' if rij.DrieD==1 else 'Nee', rij.ID_Zaal])
     
-    if datum:
-        resultaat_datum=[i for i in resultaat if i[2]==datum]
-        resultaat=resultaat_datum
+#     if datum:
+#         resultaat_datum=[i for i in resultaat if i[2]==datum]
+#         resultaat=resultaat_datum
 
-    if film_id:
-        if type(film_id)==list:
-            resultaat_idorfilm=[i  for x in film_id for i in resultaat if i[1][0] == x or x in i[1][1]] 
-        elif type(film_id)==int:
-            resultaat_idorfilm=[i for i in resultaat if i[1][0]==film_id and type(film_id)==int]
-        elif type(film_id)==str:
-            resultaat_idorfilm=[i for i in resultaat if film_id.lower() in i[1][1].lower() and type(film_id)==str]
+#     if film_id:
+#         if type(film_id)==list:
+#             resultaat_idorfilm=[i  for x in film_id for i in resultaat if i[1][0] == x or x in i[1][1]] 
+#         elif type(film_id)==int:
+#             resultaat_idorfilm=[i for i in resultaat if i[1][0]==film_id and type(film_id)==int]
+#         elif type(film_id)==str:
+#             resultaat_idorfilm=[i for i in resultaat if film_id.lower() in i[1][1].lower() and type(film_id)==str]
 
-        resultaat=resultaat_idorfilm
+#         resultaat=resultaat_idorfilm
 
-    if zaal:
-        resultaat_zaal=[i for i in resultaat if i[5]==zaal]
-        resultaat=resultaat_zaal
+#     if zaal:
+#         resultaat_zaal=[i for i in resultaat if i[5]==zaal]
+#         resultaat=resultaat_zaal
 
-    resultaat.sort(key=lambda x:x[3])
-    return resultaat 
+#     resultaat.sort(key=lambda x:x[3])
+#     return resultaat 
 
-def get_verkoop_list():
-    resultaat=[]
-    for rij in sql_verkoop_database():
-        resultaat.append([rij.Verkoop_ID, rij.ID_Vertoning, rij.Tickets_kids, rij.Tickets_standaard, rij.Prijs])
+# def get_verkoop_list():
+#     resultaat=[]
+#     for rij in sql_verkoop_database():
+#         resultaat.append([rij.Verkoop_ID, rij.ID_Vertoning, rij.Tickets_kids, rij.Tickets_standaard, rij.Prijs])
     
-    resultaat.sort(key=lambda x:x[0])
-    return resultaat
+#     resultaat.sort(key=lambda x:x[0])
+#     return resultaat
 
 
 
@@ -411,7 +412,7 @@ def menu_startpage():
             clear_screen()
             print("Programma wordt afgesloten. Bedankt en tot de volgende keer.")
             print("<bg #000000>- Günes Topal</bg #000000>")
-            print("<bg #FFDF00><fg #000000>versie: 1.0.6 - 2021/06/09</fg #000000></bg #FFDF00>")
+            print("<bg #FFDF00><fg #000000>versie: 1.0.7 - 2021/06/15</fg #000000></bg #FFDF00>")
             print("<bg #ED0000>gunes.topal@gmail.com</bg #ED0000>")
             sleep(2)
             exit()
@@ -526,25 +527,30 @@ def menu_verkoop_tickets_verkopen():
         else:
             print("Aantal kinderen?  ", end="")
             ticket['kids']=getInteger("",minima=0,maxima=zetelstotaal)
+            zetelstotaal-=ticket['standaard']
 
 
 
         if info["KNT"]== "Ja": 
             prijs= (ticket['standaard'] * (prijs_ticket['standaard']+ticket['3D']+ticket['Langspeel']))
         else:
-            prijs= (ticket['standaard'] * (prijs_ticket['standaard']+ticket['3D']+ticket['Langspeel'])) + (prijs_ticket['kids']+ticket['kids'] * (ticket['3D']+ticket['Langspeel']))
+            prijs= (ticket['standaard'] * (prijs_ticket['standaard']+ticket['3D']+ticket['Langspeel'])) + (ticket['kids'] * (prijs_ticket['kids']+ticket['3D']+ticket['Langspeel']))
 
-
+        if prijs==0:
+            return
         print("De <u>totale kost</u> voor deze verkoop is € {:.2f}".format(prijs))
         antwoord=druk_neeja()
         if antwoord:
-            insert_verkoop_database(zoek, ticket['kids'], ticket['standaard'], prijs)
-            print(f"<green>Ticket nummer {kleur_goud(zoek)} is bevestigd! </green>")
-            sleep(0.5)
+            insert_verkoop_database(zoek, ticket['kids'], ticket['standaard'], prijs) #TODO:hier voor nummer van ticket
+            alleverkopen=get_verkoop_list()
+            laatsteticket=""
+            for i in alleverkopen:
+                laatsteticket=i
+            print(f"<green>Ticket nummer {kleur_goud(laatsteticket[0])} is bevestigd! </green>")
+            sleep(1)
             print(f"De ticket wordt afgedrukt..")
-            sleep(1.5)
-            print(f"Geniet van de film!")
-            print(f"Er zijn {zetelstotaal} plaatsen vrij voor deze vertoning.")        
+            sleep(2.5)
+            print(f"Geniet van de film!")    
     else:
         print("Onze excuses, er zijn voor deze vertoning geen plaatsen meer beschikbaar.")
     druk_verder()
@@ -618,7 +624,7 @@ def menu_verkoop_tickets_verwijderen():
 def menu_verkoop_wekelijks():
     while True:
         clear_screen()
-        print("<bg #80C662><black>💲 VERKOOP - cijfers 💲</black></bg #80C662>")
+        print("<bg #80C662><black>💲 VERKOOP - cijfers 💲</black></bg #80C662>") #TODO:hier moet je zijn
         lijst=["Cijfers per week", "Tickets per film per week", "Terug"]
         keuze=(presentatie_main(lijst))
         if keuze==lijst[0]:
@@ -709,7 +715,7 @@ def menu_verkoop_cijfers_filmweek():
             return
         if len(week)==1:
             week='0'+week
-        if not week[0] in ['0','1','2','3','4','5','6','7','8','9']:
+        if not week[0] in [str(i) for i in range (10)]:
             print("Geef de weeknummer in van een film.")
             continue
         datum=datetime.strptime(jaar,"%Y")
@@ -1166,7 +1172,6 @@ def menu_films_bewerken():
             
         elif keuze==lijst[1]:
             menu_film_toevoegen()
-            druk_verder()
             continue
 
         elif keuze==lijst[2]:
@@ -1198,7 +1203,7 @@ def menu_film_toevoegen():
         print("<bg #00FCFF><black>TOEVOEGEN</black></bg #00FCFF>")
         print("<b>IMDB ID van film:</b> ", end="")
         IMDB_ID=input("")
-        if not IMDB_ID:
+        if not IMDB_ID or IMDB_ID=="0":
             return None
 
         elif not len(IMDB_ID) in [9,10] or not IMDB_ID[:2]=='tt':
@@ -1215,18 +1220,27 @@ def menu_film_toevoegen():
 
     print(f"<b>Titel: ({vind_film_via_imdb(IMDB_ID)['Titel']}) </b>", end="")
     titel=input()
+    suggestie=vind_film_via_imdb(IMDB_ID)['Titel']
     if not titel:
-        titel=vind_film_via_imdb(IMDB_ID)['Titel']
+        titel=suggestie
+
 
     print(f"<b>Duur: ({vind_film_via_imdb(IMDB_ID)['Duur']}) </b>", end="")
-    duur=input()
-    if not duur:
-        duur=vind_film_via_imdb(IMDB_ID)['Duur']
+    while True:
+        duur=input()
+        if not duur:
+            duur=vind_film_via_imdb(IMDB_ID)['Duur']
+            break
+        elif not int(duur[0]) in [1,2,3,4,5,6,7,8,9]:
+            continue 
+
 
     print(f"<b>KNT: ({'Nee' if vind_film_via_imdb(IMDB_ID)['KNT']==False else 'Ja'}) </b>", end="")
     knt=input()
     if not knt or not knt.lower() in ['j','ja']:
         knt='Nee' if vind_film_via_imdb(IMDB_ID)['KNT']==False else 'Ja'
+    elif knt[0].lower()=='j':
+        knt='Ja'
 
     print(f"<b>3D: (Nee)</b> ", end="")
     DrieD=(input()).capitalize()
