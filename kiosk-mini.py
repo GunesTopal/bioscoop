@@ -14,7 +14,7 @@ gui.theme('LightBrown8')
 
 # ------------------ CUSTOM VARIABLES ----------------
 vandaag=datetime.now()
-vandaag_datum='06/06/2021'#vandaag.strftime("%d/%m/%Y")
+vandaag_datum=vandaag.strftime("%d/%m/%Y")#'06/06/2021'#
 vandaag_tijd=vandaag.strftime("%H:%M")
 vandaag_jaar=vandaag.strftime("%Y")
 vandaag_maand_getal=vandaag.strftime("%M")
@@ -31,8 +31,8 @@ moment=""
 zaal=""
 DrieD=""
 
-#TODO:check variabel
-huidigevertoning=[vertoning for vertoning in allevertoningen if vertoning[2]=="06/06/2021"]#vandaag_datum] vb: [7, (1, 'Forrest Gump'), '04/06/2021', '10:00', 'Nee', 7]
+
+huidigevertoning=[vertoning for vertoning in allevertoningen if vertoning[2]==vandaag_datum] #vb: [7, (1, 'Forrest Gump'), '04/06/2021', '10:00', 'Nee', 7]
 lijstfilms=[(vertoning[1][0],vertoning[1][1]) for vertoning in huidigevertoning] #vb:[(18, 'Alien')]
 gegevensfilms=[(f[0], f[1], k[2],k[3],k[4]) for k in allefilms for f in lijstfilms if k[0] == f[0] ] #vb: [(18, 'Alien', 122, 'Ja', tt2316204)]
 films=[i[1] for i in lijstfilms]
@@ -101,10 +101,6 @@ def win1():
         [gui.Text("Het gevecht tussen detective Hoffman en Jill Tuck duurt voort. Ondertussen ontmoeten een aantal overleevenden van de spelletjes van Jigsaw, waaronder Dr. Lawrence Gordon, elkaar bij een sessie van Bobby Dagen, die beweert zelf ook een overlevende van Jigsaw te zijn. Maar dan wordt Bobby ontvoerd en zal hij een serie tests moeten afleggen om zijn vrienden en uiteindelijk zijn vrouw te redden.", key='-OMSCHRIJVING-', size=(45,10))]
 
     ]
-
-
-
-
 
     layout = [
         [gui.Column(kolom5, justification="center")],
@@ -188,7 +184,7 @@ while True:
         elif (values['-SPINVOLWASSENEN-']=='0' and values['-SPINKINDEREN-']=='0'):# or not values["-infofilm-"] :
             window1['-KNOP-'].update(disabled=True)
             window1['-PRIJS-'].update(value="")
-                    
+            
 
     if  event == '-KNOP-':
         insert_verkoop_database(vertoningid, values['-SPINKINDEREN-'], values['-SPINVOLWASSENEN-'], prijs)
