@@ -1,4 +1,0 @@
-import tools.movie_request as zoek
-
-print(zoek.vind_film("Saw 3D"))
-print(zoek.vind_film("The Godfather"))
